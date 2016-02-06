@@ -18,7 +18,7 @@
  const int robotSwitchPin = 7; // pin were switch that checks when robot is in charging station
  const int alarmPin = 8; //Pin that goes high when an alarm is sent
  
- int alarmTime; //Variable to hold the time that need to be ellapsed before an alarm is sent
+ unsigned long alarmTime; //Variable to hold the time that need to be ellapsed before an alarm is sent
  
  
  int state = 0;        // if state is 1, the LED will turn on and 
@@ -38,15 +38,15 @@
     digitalWrite(ledPin, LOW); // LED is initially off 
     digitalWrite(alarmPin, LOW); // alarm is initially off 
     
-    alarmTime = 1*60*1000; //Variable to hold the time that need to be ellapsed before an alarm is sent, time in miliseconds
+    alarmTime = 3*100; //Variable to hold the time that need to be ellapsed before an alarm is sent, time in miliseconds
     debugPrint(String("Alarm Time: "),1);
-    //debugPrint(String(alarmTime),1);
+    debugPrintln(String(alarmTime),1);
     Serial.println(alarmTime);
  } 
  
  
  void loop() { 
-    Serial.println(alarmTime);
+    
       //read switch to see if robot is at home
      robotSwitchState =digitalRead(robotSwitchPin);
      debugPrint(String("Reading robotswitchState: "),2);
