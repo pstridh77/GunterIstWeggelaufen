@@ -18,8 +18,8 @@
  const int robotSwitchPin = 7; // pin were switch that checks when robot is in charging station
  const int alarmPin = 8; //Pin that goes high when an alarm is sent
  
- unsigned long alarmTime; //Variable to hold the time that need to be ellapsed before an alarm is sent
- 
+ const unsigned long alarmTime= 10000; //Variable to hold the time that need to be ellapsed before an alarm is sent, in milli seconds
+ unsigned long lastTimeInChager=0; //Variable to hold when the robot was last time in the chager 
  
  int state = 0;        // if state is 1, the LED will turn on and 
                        // if state is 0, the LED will turn off 
@@ -33,35 +33,58 @@
     pinMode(ledPin, OUTPUT);
     pinMode(alarmPin, OUTPUT);
     pinMode(robotSwitchPin, INPUT); 
-    mySerial.begin(9600); 
-    Serial.begin(9600);
+    if (debugLevel <= 1){
+      mySerial.begin(9600); 
+      Serial.begin(9600);
+    }
     digitalWrite(ledPin, LOW); // LED is initially off 
     digitalWrite(alarmPin, LOW); // alarm is initially off 
     
-    alarmTime = 3*100; //Variable to hold the time that need to be ellapsed before an alarm is sent, time in miliseconds
+    
     debugPrint(String("Alarm Time: "),1);
     debugPrintln(String(alarmTime),1);
-    Serial.println(alarmTime);
+    
+    lastTimeInChager=millis(); //We asume the robot is in the charger for the first time
  } 
  
  
  void loop() { 
-    
-      //read switch to see if robot is at home
+          //read switch to see if robot is at home
      robotSwitchState =digitalRead(robotSwitchPin);
      debugPrint(String("Reading robotswitchState: "),2);
      debugPrintln(String(robotSwitchState),2);
      
-     
-     //set alarm if robot is nto there, only for test
-     alarmState=robotSwitchState;
-     
-     if(alarmState==HIGH){
-       digitalWrite(alarmPin,HIGH);
+   
+     //set alarm if robot is not there, only for test
+     if (robotSwitchState == LOW){
+       //Need to check for roll-over 
+      unsigned long currentTime = millis();
+      //Need to check for roll-over, happends after ~50days
+      if (currentTime < lastTimeInChager){
+        debugPrintln(String("An Roll-Over Event happend"),1);
+        //Let us asume we are in the charger anyway
+        lastTimeInChager=currentTime;
+      }
+       unsigned long timeSinceLastCharging = currentTime-lastTimeInChager;
+          //TODO Need to check for roll-over 
+        debugPrint(String("Time since last Charging: "),1);
+        debugPrintln(String(timeSinceLastCharging),1);
+
+       //No robot in charger, check if time has elapsed, if so send alarm
+       if( timeSinceLastCharging >= alarmTime) //Check if alarm time has elapsed 
+       {
+       setAlarmForRobot();
+       }
      }
      else {
-         digitalWrite(alarmPin,LOW);
+       //Robot in chager
+       clearAlarmForRobot();
+       //Save time
+       lastTimeInChager=millis();
+       debugPrintln(String("Robot In Chager, saving time"),1);
      }
+     
+     
      //reads serial input and saves it in the state variable
      if(mySerial.available() > 0){ 
        state = mySerial.read(); 
@@ -83,7 +106,34 @@
            flag = 1; 
          } 
      } 
+  
+    
+  }
+    
+    void setAlarmForRobot()
+    {
+       if(alarmState==LOW){
+         debugPrintln(String("Set Alarm!"),1);
+         digitalWrite(alarmPin,HIGH);
+         alarmState=HIGH;
+         //Send Alarm via BlueTooth
+          mySerial.println("RobotAlarm_1"); 
+     }
+     //DO nothing
     }
+    
+    void clearAlarmForRobot()
+    {
+      debugPrintln(String("Clear Alarm!"),1);
+      if(alarmState==HIGH){
+       digitalWrite(alarmPin,LOW);
+       alarmState=LOW;
+        //Send Alarm via BlueTooth
+        mySerial.println("RobotCharging_1"); 
+     }
+     //DO nothing
+    }
+    
     
     //Functions to print text to serial using debug level syntax
    void debugPrint(String text, int printLevel)
@@ -91,6 +141,7 @@
      //Serial.println(printLevel);
        if ((debugLevel  != 0) && (printLevel <= debugLevel)) { 
          Serial.print(text);
+         //delay(200);
        }
    }  
      
@@ -98,7 +149,9 @@
    {
        if ((debugLevel != 0) && (printLevel <= debugLevel)) { 
          Serial.println(text);
+         delay(300);
        }
    }  
+
 
 
