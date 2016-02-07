@@ -25,15 +25,22 @@
                        // if state is 0, the LED will turn off 
  int flag = 0;         // a flag to prevent duplicate messages
  
- int robotSwitchState = 0; //variable to read robotSwitchState
+ 
  int alarmState = 0;  //Inital alarm is off
+ 
+ 
+ int lastRobotSwitchState =LOW;
+ int robotInCharger;
+  unsigned long lastSwitchDebounceTime = 0;  // the last time the output pin was toggled
+  
+
  
  void setup() { 
      // sets the pins as outputs: 
     pinMode(ledPin, OUTPUT);
     pinMode(alarmPin, OUTPUT);
     pinMode(robotSwitchPin, INPUT); 
-    if (debugLevel <= 1){
+    if (debugLevel >= 1){
       mySerial.begin(9600); 
       Serial.begin(9600);
     }
@@ -43,20 +50,18 @@
     
     debugPrint(String("Alarm Time: "),1);
     debugPrintln(String(alarmTime),1);
-    
+    robotInCharger = digitalRead(robotSwitchPin); //Let define if the robot is in charger depending on switch state
     lastTimeInChager=millis(); //We asume the robot is in the charger for the first time
  } 
  
  
  void loop() { 
           //read switch to see if robot is at home
-     robotSwitchState =digitalRead(robotSwitchPin);
-     debugPrint(String("Reading robotswitchState: "),2);
-     debugPrintln(String(robotSwitchState),2);
+     
      
    
      //set alarm if robot is not there, only for test
-     if (robotSwitchState == LOW){
+     if (!isRobotInCharger()){
        //Need to check for roll-over 
       unsigned long currentTime = millis();
       //Need to check for roll-over, happends after ~50days
@@ -122,13 +127,37 @@
      //DO nothing
     }
     
+    boolean isRobotInCharger(){
+      unsigned long debounceDelay = 2000;    // the debounce time; increase if the output flickers
+      int robotSwitchState = digitalRead(robotSwitchPin); //variable to read robotSwitchState
+      debugPrint(String("Reading robotswitchState: "),2);
+      debugPrintln(String(robotSwitchState),2);
+      
+      //Check if switch has toggeled
+      if (robotSwitchState != lastRobotSwitchState){
+        lastSwitchDebounceTime=millis();
+        debugPrintln(String("Switch Has toggeled"),2);
+      }
+      
+      lastRobotSwitchState = robotSwitchState;
+      
+      //Update robot in chager if time hase elapsed
+      if ((millis()-lastSwitchDebounceTime) > debounceDelay){ 
+        debugPrintln(String("Time has been elapsed"),2);  
+        robotInCharger = robotSwitchState;
+      }
+      debugPrint(String("Return: "),2);
+      debugPrintln(String(robotInCharger),2);
+      return robotInCharger;      
+    }
+    
     void clearAlarmForRobot()
     {
       debugPrintln(String("Clear Alarm!"),1);
       if(alarmState==HIGH){
        digitalWrite(alarmPin,LOW);
        alarmState=LOW;
-        //Send Alarm via BlueTooth
+        //Send status via BlueTooth
         mySerial.println("RobotCharging_1"); 
      }
      //DO nothing
