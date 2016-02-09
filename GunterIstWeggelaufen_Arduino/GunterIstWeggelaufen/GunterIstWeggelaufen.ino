@@ -122,7 +122,7 @@
          digitalWrite(alarmPin,HIGH);
          alarmState=HIGH;
          //Send Alarm via BlueTooth
-          mySerial.println("RobotAlarm_1"); 
+          mySerial.println("A"); 
      }
      //DO nothing
     }
@@ -158,7 +158,7 @@
        digitalWrite(alarmPin,LOW);
        alarmState=LOW;
         //Send status via BlueTooth
-        mySerial.println("RobotCharging_1"); 
+        mySerial.println("C"); 
      }
      //DO nothing
     }
