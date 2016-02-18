@@ -12,22 +12,24 @@
  
   SoftwareSerial mySerial(rxPin, txPin); // RX, TX 
 
- const int debugLevel = 1; //specifiy printlevel for debug text, higher number=more text. 0= no text
+ const int debugLevel = 0; //specifiy printlevel for debug text, higher number=more text. 0= no text
  
  const int ledPin = 13;  // led pin 
  const int robotSwitchPin = 7; // pin were switch that checks when robot is in charging station
  const int alarmPin = 8; //Pin that goes high when an alarm is sent
  
- const unsigned long alarmTime= 10000; //Variable to hold the time that need to be ellapsed before an alarm is sent, in milli seconds
+ //const unsigned long alarmTime= 60000; //Variable to hold the time that need to be ellapsed before an alarm is sent, in milli seconds
+ //const unsigned long alarmTime= 7200000; //2h Variable to hold the time that need to be ellapsed before an alarm is sent, in milli seconds
+ const unsigned long alarmTime= 36000000; //10h
  unsigned long lastTimeInChager=0; //Variable to hold when the robot was last time in the chager 
- 
+ unsigned long lastTimeSending=0; //variable to hold the time when we last time sent a time msg to phone 
  int state = 0;        // if state is 1, the LED will turn on and 
                        // if state is 0, the LED will turn off 
  int flag = 0;         // a flag to prevent duplicate messages
  
  
  int alarmState = 0;  //Inital alarm is off
- 
+ boolean inChargerMsgSent = false;
  
  int lastRobotSwitchState =LOW;
  int robotInCharger;
@@ -40,8 +42,8 @@
     pinMode(ledPin, OUTPUT);
     pinMode(alarmPin, OUTPUT);
     pinMode(robotSwitchPin, INPUT); 
-    if (debugLevel >= 1){
-      mySerial.begin(9600); 
+    mySerial.begin(9600);
+    if (debugLevel >= 1){ 
       Serial.begin(9600);
     }
     digitalWrite(ledPin, LOW); // LED is initially off 
@@ -52,6 +54,7 @@
     debugPrintln(String(alarmTime),1);
     robotInCharger = digitalRead(robotSwitchPin); //Let define if the robot is in charger depending on switch state
     lastTimeInChager=millis(); //We asume the robot is in the charger for the first time
+    lastTimeSending=millis();
  } 
  
  
@@ -62,6 +65,7 @@
    
      //set alarm if robot is not there, only for test
      if (!isRobotInCharger()){
+       inChargerMsgSent=false;
        //Need to check for roll-over 
       unsigned long currentTime = millis();
       //Need to check for roll-over, happends after ~50days
@@ -72,13 +76,15 @@
       }
        unsigned long timeSinceLastCharging = currentTime-lastTimeInChager;
           //TODO Need to check for roll-over 
-        debugPrint(String("Time since last Charging: "),1);
-        debugPrintln(String(timeSinceLastCharging),1);
+        debugPrint(String("Time since last Charging: "),2);
+        debugPrintln(String(timeSinceLastCharging),2);
 
        //No robot in charger, check if time has elapsed, if so send alarm
        if( timeSinceLastCharging >= alarmTime) //Check if alarm time has elapsed 
        {
        setAlarmForRobot();
+       }else{ //Send time since last charging
+         sendTime(timeSinceLastCharging);
        }
      }
      else {
@@ -99,7 +105,7 @@
      if (state == '0') { 
          digitalWrite(ledPin, LOW); 
          if(flag == 0){ 
-           mySerial.println("LED: off"); 
+           mySerial.println("0"); 
            flag = 1; 
          } 
      } 
@@ -107,7 +113,7 @@
      else if (state == '1') { 
          digitalWrite(ledPin, HIGH); 
          if(flag == 0){ 
-           mySerial.println("LED: on"); 
+           mySerial.println("1"); 
            flag = 1; 
          } 
      } 
@@ -115,12 +121,29 @@
     
   }
     
+    void sendTime(unsigned long time){
+      unsigned long currentTime = millis();
+      unsigned long timeSinceLastSending = currentTime-lastTimeSending;  
+      //debugPrint(String("timeSinceLastSending: ",1);
+      //debugPrintln(String(timeSinceLastSending,1));
+      if( timeSinceLastSending >= 10000){
+        //debugPrintln(String("Sending time: T " ),1);
+        //mySerial.println("T " + time);
+        lastTimeSending=millis();
+        debugPrint(String("Sending time: T " ),1);
+        debugPrintln(String(time),1);
+        mySerial.println("T");
+        mySerial.println(time);
+     } 
+    }
+    
     void setAlarmForRobot()
     {
        if(alarmState==LOW){
          debugPrintln(String("Set Alarm!"),1);
          digitalWrite(alarmPin,HIGH);
          alarmState=HIGH;
+         inChargerMsgSent=false;
          //Send Alarm via BlueTooth
           mySerial.println("A"); 
      }
@@ -145,6 +168,13 @@
       if ((millis()-lastSwitchDebounceTime) > debounceDelay){ 
         debugPrintln(String("Time has been elapsed"),2);  
         robotInCharger = robotSwitchState;
+        if (robotInCharger){
+          digitalWrite(ledPin, HIGH); 
+        }else {
+          digitalWrite(ledPin, LOW);
+          
+        }
+        
       }
       debugPrint(String("Return: "),2);
       debugPrintln(String(robotInCharger),2);
@@ -154,11 +184,12 @@
     void clearAlarmForRobot()
     {
       debugPrintln(String("Clear Alarm!"),1);
-      if(alarmState==HIGH){
+      if(alarmState==HIGH || !inChargerMsgSent){
        digitalWrite(alarmPin,LOW);
        alarmState=LOW;
         //Send status via BlueTooth
         mySerial.println("C"); 
+        inChargerMsgSent=true;
      }
      //DO nothing
     }

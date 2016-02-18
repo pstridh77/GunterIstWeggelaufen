@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Gunter App</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_gunter_control">GunterControl</string>
+</resources>
